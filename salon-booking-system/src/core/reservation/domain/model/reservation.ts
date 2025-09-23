@@ -1,6 +1,28 @@
+// 予約というビジネス上の概念を表現してみる
+
+// まずオブジェクトが持つべきプロパティ（属性）を定義したインターフェースを作成する
+// 予約の振る舞いとデータをカプセル化（隠蔽）するクラスを作成する
+
+// 作成するものの内容
+// エンティティ
+// 値オブジェクト
+// カプセル化
+// ドメインルールの内包
+
+
 import { ReservationId } from './reservation-id';
 import { TimeSlot } from './time-slop';
 import { ReservationStatus, ReservationStatusType } from './reservation-status';
+import {
+  CannotConfirmReservationError,
+  CannotCancelReservationError,
+  CannotCompleteReservationError,
+  CannotMarkNoShowError,
+  CannotRescheduleReservationError,
+  CannotReassignStaffError,
+  InvalidStaffIdError,
+  PastTimeReservationError,
+} from '../errors';
 
 export interface ReservationProps {
   id: ReservationId;
@@ -47,7 +69,7 @@ export class Reservation {
     const now = new Date();
 
     if (timeSlot.getStartTime() <= now) {
-      throw new Error('Cannot create reservation for past time');
+      throw new PastTimeReservationError();
     }
 
     return new Reservation({
@@ -62,82 +84,87 @@ export class Reservation {
       updatedAt: now
     });
   }
-
   confirm(): void {
     if (!this.status.canTransitionTo(ReservationStatusType.CONFIRMED)) {
-      throw new Error('Cannot confirm reservation in current status');
+      throw new CannotConfirmReservationError(this.status.getStatus());
     }
-
+  
     this.status = this.status.transitionTo(ReservationStatusType.CONFIRMED);
     this.updatedAt = new Date();
   }
-
+  
   cancel(reason: string): void {
     if (this.status.isFinal()) {
-      throw new Error('Cannot cancel reservation in final status');
+      throw new CannotCancelReservationError('reservation is in final status');
     }
-
+  
     if (!this.status.canTransitionTo(ReservationStatusType.CANCELLED)) {
-      throw new Error('Cannot cancel reservation in current status');
+      throw new CannotCancelReservationError(this.status.getStatus());
     }
-
+  
     this.status = this.status.transitionTo(ReservationStatusType.CANCELLED, reason);
     this.updatedAt = new Date();
   }
-
+  
   complete(): void {
     if (!this.status.isConfirmed()) {
-      throw new Error('Only confirmed reservations can be completed');
+      throw new CannotCompleteReservationError('only confirmed reservations can be completed');
     }
-
+  
     const now = new Date();
     if (this.timeSlot.getEndTime() > now) {
-      throw new Error('Cannot complete reservation before end time');
+      throw new CannotCompleteReservationError('cannot complete before end time');
     }
-
+  
     this.status = this.status.transitionTo(ReservationStatusType.COMPLETED);
     this.updatedAt = new Date();
   }
-
+  
   markNoShow(): void {
     if (!this.status.isConfirmed()) {
-      throw new Error('Only confirmed reservations can be marked as no-show');
+      throw new CannotMarkNoShowError('only confirmed reservations can be marked as no-show');
     }
-
+  
     const now = new Date();
     if (this.timeSlot.getStartTime() > now) {
-      throw new Error('Cannot mark as no-show before reservation time');
+      throw new CannotMarkNoShowError('cannot mark as no-show before reservation time');
     }
-
+  
     this.status = this.status.transitionTo(ReservationStatusType.NO_SHOW);
     this.updatedAt = new Date();
   }
-
+  
   reschedule(newTimeSlot: TimeSlot): void {
     if (this.status.isFinal()) {
-      throw new Error('Cannot reschedule reservation in final status');
+      throw new CannotRescheduleReservationError('reservation is in final status');
     }
-
+  
     const now = new Date();
     if (newTimeSlot.getStartTime() <= now) {
-      throw new Error('Cannot reschedule to past time');
+      throw new CannotRescheduleReservationError('cannot reschedule to past time');
     }
-
+  
     this.timeSlot = newTimeSlot;
     this.updatedAt = new Date();
   }
-
+  
   reassignStaff(newStaffId: string): void {
     if (this.status.isFinal()) {
-      throw new Error('Cannot reassign staff for reservation in final status');
+      throw new CannotReassignStaffError('reservation is in final status');
     }
-
+  
     if (!newStaffId) {
-      throw new Error('Staff ID cannot be empty');
+      throw new InvalidStaffIdError();
     }
-
+  
     this.staffId = newStaffId;
     this.updatedAt = new Date();
+  }
+
+  private validateStaffId(newStaffId: string): void {
+    if (!newStaffId) {
+      throw new InvalidStaffIdError();
+    }
   }
 
   updateNotes(notes: string): void {
