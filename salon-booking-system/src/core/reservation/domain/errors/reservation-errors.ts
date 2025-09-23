@@ -1,9 +1,11 @@
+import { HTTP_STATUS, DOMAIN_ERROR_STATUS } from './http-status-codes';
+
 // 基本的な Error Classes
 export abstract class DomainError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly statusCode: number = 400
+    public readonly statusCode: number = HTTP_STATUS.BAD_REQUEST
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -11,24 +13,24 @@ export abstract class DomainError extends Error {
 }
 
 
-// 1. Resource Errors (リソース関連のエラー)
+// 1. Resource Errors
 export abstract class ResourceError extends DomainError {
-  constructor(message: string, code: string, statusCode: number = 404) {
+  constructor(message: string, code: string, statusCode: number = DOMAIN_ERROR_STATUS.NOT_FOUND) {
     super(message, code, statusCode);
   }
 }
 
 export class ReservationNotFoundError extends ResourceError {
   constructor() {
-    super('Reservation not found', 'RESERVATION_NOT_FOUND', 404);
+    super('Reservation not found', 'RESERVATION_NOT_FOUND', HTTP_STATUS.NOT_FOUND);
   }
 }
 
 
-// 2. Validation Errors (バリデーションエラー)
+// 2. Validation Errors
 export abstract class ValidationError extends DomainError {
   constructor(message: string, code: string) {
-    super(message, code, 400);
+    super(message, code, DOMAIN_ERROR_STATUS.VALIDATION_ERROR);
   }
 }
 
@@ -45,27 +47,27 @@ export class PastTimeReservationError extends ValidationError {
 }
 
 
-// 3. Business Rule Errors (ビジネスルール違反)
+// 3. Business Rule Errors
 export abstract class BusinessRuleError extends DomainError {
-  constructor(message: string, code: string, statusCode: number = 400) {
+  constructor(message: string, code: string, statusCode: number = DOMAIN_ERROR_STATUS.BUSINESS_RULE_VIOLATION) {
     super(message, code, statusCode);
   }
 }
 
 export class TimeSlotConflictError extends BusinessRuleError {
   constructor() {
-    super('Time slot already reserved', 'TIME_SLOT_CONFLICT', 409);
+    super('Time slot already reserved', 'TIME_SLOT_CONFLICT', HTTP_STATUS.CONFLICT);
   }
 }
 
 export class ReservationCapacityExceededError extends BusinessRuleError {
   constructor() {
-    super('Reservation capacity exceeded', 'CAPACITY_EXCEEDED', 400);
+    super('Reservation capacity exceeded', 'CAPACITY_EXCEEDED', HTTP_STATUS.BAD_REQUEST);
   }
 }
 
 
-// 4. State Transition Errors (状態遷移エラー)
+// 4. State Transition Errors
 export abstract class StateTransitionError extends DomainError {
   constructor(
     message: string,
@@ -73,7 +75,7 @@ export abstract class StateTransitionError extends DomainError {
     public readonly currentStatus?: string,
     public readonly targetStatus?: string
   ) {
-    super(message, code, 400);
+    super(message, code, DOMAIN_ERROR_STATUS.INVALID_STATE_TRANSITION);
   }
 }
 
@@ -129,10 +131,10 @@ export class CannotMarkNoShowError extends StateTransitionError {
 }
 
 
-// 5. Operation Errors (操作エラー)
+// 5. Operation Errors
 export abstract class OperationError extends DomainError {
   constructor(message: string, code: string) {
-    super(message, code, 400);
+    super(message, code, DOMAIN_ERROR_STATUS.OPERATION_NOT_ALLOWED);
   }
 }
 
